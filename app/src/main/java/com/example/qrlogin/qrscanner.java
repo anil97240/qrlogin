@@ -9,6 +9,7 @@ import android.preference.PreferenceManager;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.format.DateFormat;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -35,18 +36,22 @@ import com.google.zxing.integration.android.IntentResult;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
 public class qrscanner extends AppCompatActivity implements View.OnClickListener {
 
-
+    //tag for error message
     private static final String TAG = "MOHIT";
     //View Objects
     private Button buttonScan;
     String username;
-    boolean status;
 
+    //for status
+    String status;
+//for sharedpreference values get
+    String epmloyee_id;
 
     //qr code scanner object
     private IntentIntegrator qrScan;
@@ -57,6 +62,12 @@ public class qrscanner extends AppCompatActivity implements View.OnClickListener
         setContentView(R.layout.activity_qrscanner);
         setTitle("Scann Qr Code");
 
+        SharedPreferences userDetails = getApplication().getSharedPreferences("test", getApplication().MODE_PRIVATE);
+        String test1 = userDetails.getString("test1", "");
+        String test2 = userDetails.getString("test2", "");
+
+        final SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(this);
+        epmloyee_id = String.valueOf(sharedPref.getBoolean("id", false));
         //View objects
         buttonScan = (Button) findViewById(R.id.buttonScan);
 
@@ -75,7 +86,16 @@ public class qrscanner extends AppCompatActivity implements View.OnClickListener
         IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
         if (result != null) {
             //if qrcode has nothing in it
-            if (result.getContents() == null) {
+
+            //call l() method for user entry
+            try {
+                l();
+            } catch (JSONException e1) {
+                e1.printStackTrace();
+            }
+
+       //QR code comapre with "ally" same qr so add entry in db
+            if (!(result.getContents() == "ally")) {
                 Toast.makeText(this, "Result Not Found", Toast.LENGTH_LONG).show();
             } else {
                 //if qr contains data
@@ -86,20 +106,39 @@ public class qrscanner extends AppCompatActivity implements View.OnClickListener
                     e.printStackTrace();
 
                     //   Toast.makeText(this, "QR is:" +, Toast.LENGTH_LONG).show();
+                    //alert for user welcome or thank you message display
 
-                    AlertDialog.Builder builder = new AlertDialog.Builder(
-                            qrscanner.this);
-                    builder.setTitle("WELCOME "+ username);
-                    builder.setMessage(result.getContents());
+        //for status get
+                    if (status.equals(1)) {
+                        AlertDialog.Builder builder = new AlertDialog.Builder(
+                                qrscanner.this);
+                        builder.setTitle("Welcome " + username);
+                        builder.setMessage(result.getContents());
+                        //set button for user conformation
+                        builder.setPositiveButton("OK",
+                                new DialogInterface.OnClickListener() {
+                                    public void onClick(DialogInterface dialog, int which) {
 
-                    builder.setPositiveButton("OK",
-                            new DialogInterface.OnClickListener() {
-                                public void onClick(DialogInterface dialog, int which) {
 
+                                    }
+                                });
+                        builder.show();
+                    }
+                    if(status.equals(2))
+                    {
+                        AlertDialog.Builder builder = new AlertDialog.Builder(
+                                qrscanner.this);
+                        builder.setTitle("Thank you " + username);
+                        builder.setMessage(result.getContents());
+                        //set button for user conformation
+                        builder.setPositiveButton("OK",
+                                new DialogInterface.OnClickListener() {
+                                    public void onClick(DialogInterface dialog, int which) {
+                                    }
+                                });
+                        builder.show();
 
-                                }
-                            });
-                    builder.show();
+                    }
                 }
             }
         } else {
@@ -111,12 +150,9 @@ public class qrscanner extends AppCompatActivity implements View.OnClickListener
 
     @Override
     public void onClick(View v) {
+        //for open qr scanner
         qrScan.initiateScan();
-        try {
-            l();
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
+
 
     }
     @Override
@@ -130,6 +166,9 @@ public class qrscanner extends AppCompatActivity implements View.OnClickListener
         int id = item.getItemId();
         switch (id) {
             case R.id.item1:
+
+         //logout for user all shareprefrece clear and redirect to login page
+
                 SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(qrscanner.this);
                 SharedPreferences.Editor editor = preferences.edit();
                 editor.clear();
@@ -149,6 +188,11 @@ public class qrscanner extends AppCompatActivity implements View.OnClickListener
 
     public void l() throws JSONException {
 
+
+        //get current date for
+        Date d = new Date();
+        CharSequence s  = DateFormat.format("yyyy,mm,dd", d.getTime());
+
         RequestQueue mRequestQueue;
         Cache cache = new DiskBasedCache(getCacheDir(), 1024 * 1024); // 1MB cap
         Network network = new BasicNetwork(new HurlStack());
@@ -156,30 +200,40 @@ public class qrscanner extends AppCompatActivity implements View.OnClickListener
         mRequestQueue.start();
         JSONObject postparams = new JSONObject();
 
-        postparams.put("e_id", "1");
-        postparams.put("id", "1");
-        postparams.put("date", "2010-02-12");
+        postparams.put("e_id", epmloyee_id);
+     //   postparams.put("id", "1");
+        postparams.put("date", s.toString());
 
         final JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.POST,Constant.User, postparams, new Response.Listener<JSONObject>() {
             @Override
             public void onResponse(JSONObject response) {
                 Toast.makeText(qrscanner.this, "" + response, Toast.LENGTH_SHORT).show();
                 Log.e(TAG, "onResponse: "+response );
+                try {
+                     status=response.getString("status");
+                    String message=response.getString("message");
+
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
 
             }
         }, new Response.ErrorListener() {
             @Override
             public void onErrorResponse(VolleyError error) {
-                Toast.makeText(qrscanner.this, "Cant Connect to server", Toast.LENGTH_SHORT).show();
+                Toast.makeText(qrscanner.this, "Can't Connect to server", Toast.LENGTH_SHORT).show();
                 Log.e(TAG, "onErrorResponse: "+error );
-
             }
         });
+
+        // Add the request to the RequestQueue.
         mRequestQueue.add(jsonObjectRequest);
     }
 
     @Override
     public void onBackPressed() {
+        //for clsoe app
         finish();
         super.onBackPressed();
     }
