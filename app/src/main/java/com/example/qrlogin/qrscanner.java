@@ -9,6 +9,7 @@ import android.preference.PreferenceManager;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -18,6 +19,16 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.android.volley.Cache;
+import com.android.volley.Network;
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.BasicNetwork;
+import com.android.volley.toolbox.DiskBasedCache;
+import com.android.volley.toolbox.HurlStack;
+import com.android.volley.toolbox.JsonObjectRequest;
 import com.google.zxing.integration.android.IntentIntegrator;
 import com.google.zxing.integration.android.IntentResult;
 
@@ -30,6 +41,7 @@ import java.util.Map;
 public class qrscanner extends AppCompatActivity implements View.OnClickListener {
 
 
+    private static final String TAG = "MOHIT";
     //View Objects
     private Button buttonScan;
     String username;
@@ -43,19 +55,17 @@ public class qrscanner extends AppCompatActivity implements View.OnClickListener
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_qrscanner);
-        setTitle("SCANN QR CODE");
+        setTitle("Scann Qr Code");
 
         //View objects
         buttonScan = (Button) findViewById(R.id.buttonScan);
-
-
-
 
         //intializing scan object
         qrScan = new IntentIntegrator(this);
 
         //attaching onclick listener
         buttonScan.setOnClickListener(this);
+
     }
 
 
@@ -75,9 +85,7 @@ public class qrscanner extends AppCompatActivity implements View.OnClickListener
                 } catch (JSONException e) {
                     e.printStackTrace();
 
-
                     //   Toast.makeText(this, "QR is:" +, Toast.LENGTH_LONG).show();
-
 
                     AlertDialog.Builder builder = new AlertDialog.Builder(
                             qrscanner.this);
@@ -86,8 +94,9 @@ public class qrscanner extends AppCompatActivity implements View.OnClickListener
 
                     builder.setPositiveButton("OK",
                             new DialogInterface.OnClickListener() {
-                                public void onClick(DialogInterface dialog,
-                                                    int which) {
+                                public void onClick(DialogInterface dialog, int which) {
+
+
                                 }
                             });
                     builder.show();
@@ -103,6 +112,11 @@ public class qrscanner extends AppCompatActivity implements View.OnClickListener
     @Override
     public void onClick(View v) {
         qrScan.initiateScan();
+        try {
+            l();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
 
     }
     @Override
@@ -116,7 +130,6 @@ public class qrscanner extends AppCompatActivity implements View.OnClickListener
         int id = item.getItemId();
         switch (id) {
             case R.id.item1:
-
                 SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(qrscanner.this);
                 SharedPreferences.Editor editor = preferences.edit();
                 editor.clear();
@@ -129,6 +142,50 @@ public class qrscanner extends AppCompatActivity implements View.OnClickListener
                 return super.onOptionsItemSelected(item);
         }
     }
+
+
+
+
+
+    public void l() throws JSONException {
+
+        RequestQueue mRequestQueue;
+        Cache cache = new DiskBasedCache(getCacheDir(), 1024 * 1024); // 1MB cap
+        Network network = new BasicNetwork(new HurlStack());
+        mRequestQueue = new RequestQueue(cache, network);
+        mRequestQueue.start();
+        JSONObject postparams = new JSONObject();
+
+        postparams.put("e_id", "1");
+        postparams.put("id", "1");
+        postparams.put("date", "2010-02-12");
+
+        final JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.POST,Constant.User, postparams, new Response.Listener<JSONObject>() {
+            @Override
+            public void onResponse(JSONObject response) {
+                Toast.makeText(qrscanner.this, "" + response, Toast.LENGTH_SHORT).show();
+                Log.e(TAG, "onResponse: "+response );
+
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                Toast.makeText(qrscanner.this, "Cant Connect to server", Toast.LENGTH_SHORT).show();
+                Log.e(TAG, "onErrorResponse: "+error );
+
+            }
+        });
+        mRequestQueue.add(jsonObjectRequest);
+    }
+
+    @Override
+    public void onBackPressed() {
+        finish();
+        super.onBackPressed();
+    }
 }
+
+
+
 
 

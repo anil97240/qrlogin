@@ -3,150 +3,133 @@ package com.example.qrlogin;
 import android.app.ProgressDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.preference.PreferenceManager;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
+import android.support.design.widget.Snackbar;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.Toast;
+import android.widget.ScrollView;
 
-import com.google.zxing.integration.android.IntentIntegrator;
+import com.android.volley.Cache;
+import com.android.volley.Network;
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.BasicNetwork;
+import com.android.volley.toolbox.DiskBasedCache;
+import com.android.volley.toolbox.HurlStack;
+import com.android.volley.toolbox.JsonObjectRequest;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "LoginActivity";
     private static final int REQUEST_SIGNUP = 0;
-
+    ProgressDialog progressDialog;
     EditText _emailText;
     EditText _passwordText;
     Button _loginButton;
-
     boolean Registered;
+    ScrollView s1;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        setTitle("LOGIN");
+        setTitle("Login");
 
+        s1 = findViewById(R.id.s1);
 
         final SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(this);
         Registered = sharedPref.getBoolean("Registered", false);
 
-        if (!Registered)
-        {
-            //Toast.makeText(this, "", Toast.LENGTH_SHORT).show();
-        }else {
-            startActivity(new Intent(this,qrscanner.class));
+        if (!Registered) {
+
+
+        } else {
+            Intent i=new Intent(getApplicationContext(),qrscanner.class);
+            startActivity(i);
             finish();
         }
 
 
-        _emailText =findViewById(R.id.input_email);
-        _passwordText =findViewById(R.id.input_password);
-        _loginButton=findViewById(R.id.btn_login);
+        _emailText = findViewById(R.id.input_email);
+        _passwordText = findViewById(R.id.input_password);
+        _loginButton = findViewById(R.id.btn_login);
+
 
         _loginButton.setOnClickListener(new View.OnClickListener() {
-
-            @Override
             public void onClick(View v) {
-                login();
+                progressDialog = new ProgressDialog(MainActivity.this);
+                progressDialog.setCancelable(false);
+                progressDialog.setMessage("Connecting To Server");
+                progressDialog.show();
+
+                try {
+                    l();
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
             }
         });
 
+
     }
 
-    public void login() {
-        Log.d(TAG, "Login");
 
-        if (!validate()) {
-            onLoginFailed();
-            return;
-        }
+    public void l() throws JSONException {
+        RequestQueue mRequestQueue;
+        Cache cache = new DiskBasedCache(getCacheDir(), 1024 * 1024); // 1MB cap
+        Network network = new BasicNetwork(new HurlStack());
+        mRequestQueue = new RequestQueue(cache, network);
+        mRequestQueue.start();
+        JSONObject postparams = new JSONObject();
+        postparams.put("empid", _emailText.getText().toString());
+        postparams.put("password", _passwordText.getText().toString());
 
-        _loginButton.setEnabled(false);
-
-        final ProgressDialog progressDialog = new ProgressDialog(MainActivity.this, R.style.AppTheme);
-        progressDialog.setIndeterminate(true);
-        progressDialog.setMessage("Authenticating...");
-        progressDialog.show();
-
-        String email = _emailText.getText().toString();
-        String password = _passwordText.getText().toString();
-
-        // TODO: Implement your own authentication logic here.
-
-        new android.os.Handler().postDelayed(
-                new Runnable() {
-                    public void run() {
-                        // On complete call either onLoginSuccess or onLoginFailed
-                        onLoginSuccess();
-                        // onLoginFailed();
-                        progressDialog.dismiss();
-                    }
-                }, 3000);
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == REQUEST_SIGNUP) {
-            if (resultCode == RESULT_OK) {
-
-                // TODO: Implement successful signup logic here
-                // By default we just finish the Activity and log them in automatically
-                this.finish();
+        final JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.POST, Constant.Login, postparams, new Response.Listener<JSONObject>() {
+            @Override
+            public void onResponse(JSONObject response) {
+                Log.e(TAG, "onResponse: " + response);
+                try {
+                    progressDialog.dismiss();
+                    String status = response.getString("status");
+                    String message = response.getString("message");
+                    String data = response.getString("data");
+                    final SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+                    SharedPreferences.Editor editor = sharedPref.edit();
+                    editor.putBoolean("Registered", true);
+                    editor.putString("status", status);
+                    editor.putString("message", message);
+                    editor.putString("data", data);
+                    editor.apply();
+                    Intent i=new Intent(getApplicationContext(),qrscanner.class);
+                    startActivity(i);
+                    finish();
+                } catch (JSONException e) {
+                    progressDialog.dismiss();
+                    Log.e(TAG, "onResponse: " + e.getMessage());
+                }
             }
-        }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                progressDialog.dismiss();
+                Snackbar snackbar = Snackbar.make(s1, "Can't Find Account", Snackbar.LENGTH_LONG);
+                snackbar.show();
+
+            }
+        });
+        mRequestQueue.add(jsonObjectRequest);
     }
 
-    @Override
-    public void onBackPressed() {
-        // disable going back to the MainActivity
-        moveTaskToBack(true);
-    }
-
-    public void onLoginSuccess() {
-
-        final SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(this);
-        SharedPreferences.Editor editor = sharedPref.edit();
-        editor.putBoolean("Registered", true);
-        editor.putString("Username", _emailText.getText().toString());
-        editor.apply();
-
-        Intent i = new Intent(getApplicationContext(), qrscanner.class);
-        startActivity(i);
-        finish();
-    }
-
-    public void onLoginFailed() {
-        Toast.makeText(getBaseContext(), "Login failed", Toast.LENGTH_LONG).show();
-
-        _loginButton.setEnabled(true);
-    }
-
-    public boolean validate() {
-        boolean valid = true;
-
-        String email = _emailText.getText().toString();
-        String password = _passwordText.getText().toString();
-
-        if (email.isEmpty() || !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            _emailText.setError("enter a valid email address");
-            valid = false;
-        } else {
-            _emailText.setError(null);
-        }
-
-        if (password.isEmpty() || password.length() < 4 || password.length() > 10) {
-            _passwordText.setError("between 4 and 10 alphanumeric characters");
-            valid = false;
-        } else {
-            _passwordText.setError(null);
-        }
-
-        return valid;
-    }
 }
 
 
