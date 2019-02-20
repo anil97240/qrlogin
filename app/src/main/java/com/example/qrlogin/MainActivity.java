@@ -12,6 +12,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ScrollView;
+import android.widget.Toast;
 
 import com.android.volley.Cache;
 import com.android.volley.Network;
@@ -23,7 +24,10 @@ import com.android.volley.toolbox.BasicNetwork;
 import com.android.volley.toolbox.DiskBasedCache;
 import com.android.volley.toolbox.HurlStack;
 import com.android.volley.toolbox.JsonObjectRequest;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -117,13 +121,19 @@ public class MainActivity extends AppCompatActivity {
                     String status = response.getString("status");
                     String message = response.getString("message");
                     String data = response.getString("data");
+
+                    String username = null;
+
+
+
                    //sharedpreference pass data in qrscanner activity
-                    final SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
-                    SharedPreferences.Editor editor = sharedPref.edit();
+                    SharedPreferences sharedPreferences=getSharedPreferences("User",MODE_PRIVATE);
+                    SharedPreferences.Editor editor = sharedPreferences.edit();
                     editor.putBoolean("Registered", true);
                     editor.putString("status", status);
                     editor.putString("message", message);
                     editor.putString("data", data);
+                    editor.putString("username",username);
                     editor.putString("id",_emailText.getText().toString());
                     editor.apply();
                     /**
