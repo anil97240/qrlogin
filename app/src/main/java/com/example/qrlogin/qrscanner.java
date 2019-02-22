@@ -1,5 +1,6 @@
 package com.example.qrlogin;
 
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -38,14 +39,18 @@ public class qrscanner extends AppCompatActivity implements View.OnClickListener
     private static final String TAG = "MOHIT";
     String username;
     //for status
-    String status,message;
+    String status, message,data;
 
+    String result1;
     //for sharedpreference values get
     String epmloyee_id, name;
+    boolean Registered;
+
     //View Objects
     private Button buttonScan;
     //qr code scanner object
     private IntentIntegrator qrScan;
+    JSONObject postparams;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,6 +61,7 @@ public class qrscanner extends AppCompatActivity implements View.OnClickListener
         SharedPreferences shared = getSharedPreferences("User", MODE_PRIVATE);
         epmloyee_id = (shared.getString("id", ""));
         name = (shared.getString("username", ""));
+
 
 
         //View objects
@@ -69,43 +75,35 @@ public class qrscanner extends AppCompatActivity implements View.OnClickListener
 
     }
 
-
     //Getting the scan results
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
+        String s = "aaa";
+
         if (result != null) {
-            String result1 = result.getContents();
+            result1 = result.getContents();
 
+            if (result1.equals(s)) {
 
-            if (result1.equals("1")) {
-
-                if (status.equals("1")) {
-                    AlertDialog.Builder builder1 = new AlertDialog.Builder(qrscanner.this);
-                    builder1.setMessage("AAvo AAVO" + name);
-                    builder1.setCancelable(true);
-                    AlertDialog alert11 = builder1.create();
-                    alert11.show();
-                } else {
-                    AlertDialog.Builder builder1 = new AlertDialog.Builder(qrscanner.this);
-                    builder1.setMessage("TATA" + name);
-                    builder1.setCancelable(true);
-                    AlertDialog alert11 = builder1.create();
-                    alert11.show();
+                try {
+                    result1 = "aaa";
+                    l();
+                } catch (JSONException e) {
+                    e.printStackTrace();
                 }
-            }
 
+            } else {
+                Toast.makeText(this, "QR Not Found..", Toast.LENGTH_SHORT).show();
+            }
 
         }
         super.onActivityResult(requestCode, resultCode, data);
     }
 
-
     @Override
     public void onClick(View v) {
         //for open qr scanner
         qrScan.initiateScan();
-
-
     }
 
     @Override
@@ -121,15 +119,68 @@ public class qrscanner extends AppCompatActivity implements View.OnClickListener
         switch (id) {
             case R.id.item1:
 
-                //logout for user all shareprefrece clear and redirect to login page
+                //for logout data using sharedpreference
 
-                SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(qrscanner.this);
-                SharedPreferences.Editor editor = preferences.edit();
-                editor.clear();
-                editor.commit();
-                Intent i = new Intent(qrscanner.this, MainActivity.class);
-                startActivity(i);
-                return true;
+                SharedPreferences shared = getSharedPreferences("id", MODE_PRIVATE);
+                String uid= (shared.getString("uid", ""));
+
+                if(uid.equals("")) {
+
+                    SharedPreferences sharedPreferences = getSharedPreferences("User", MODE_PRIVATE);
+                    SharedPreferences.Editor editor = sharedPreferences.edit();
+                    editor.putBoolean("Registered", false);
+                    editor.apply();
+                    Intent i = new Intent(qrscanner.this, MainActivity.class);
+                    startActivity(i);
+                    finish();
+
+                    return true;
+                }
+                else {
+                    try {
+
+                        final AlertDialog.Builder builder1 = new AlertDialog.Builder(qrscanner.this);
+                        builder1.setTitle("Logout");
+                        builder1.setMessage(" You are Successfully out"+name);
+                        builder1.setCancelable(false);
+                        builder1.setPositiveButton("YES", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                try {
+
+                                    l();
+
+                                } catch (JSONException e) {
+                                    e.printStackTrace();
+                                }
+
+                                Intent i = new Intent(qrscanner.this, MainActivity.class);
+                                startActivity(i);
+                                finish();
+
+                            }
+                        });
+                        builder1.setNegativeButton("NO", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+
+                            }
+                        });
+                        AlertDialog alert11 = builder1.create();
+                        alert11.show();
+
+                        SharedPreferences sharedPreferences = getSharedPreferences("User", MODE_PRIVATE);
+                        SharedPreferences.Editor editor = sharedPreferences.edit();
+                        editor.putBoolean("Registered", false);
+                        editor.apply();
+
+                        return  true;
+
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+
+                }
 
             default:
                 return super.onOptionsItemSelected(item);
@@ -137,33 +188,82 @@ public class qrscanner extends AppCompatActivity implements View.OnClickListener
     }
 
 
+
+
     public void l() throws JSONException {
         //get current date for
         Date d = new Date();
         final CharSequence s = DateFormat.format("yyyy-MM-dd", d.getTime());
-        Toast.makeText(qrscanner.this, s.toString(), Toast.LENGTH_SHORT).show();
         RequestQueue mRequestQueue;
         Cache cache = new DiskBasedCache(getCacheDir(), 1024 * 1024); // 1MB cap
         Network network = new BasicNetwork(new HurlStack());
         mRequestQueue = new RequestQueue(cache, network);
         mRequestQueue.start();
-        JSONObject postparams = new JSONObject();
+        postparams = new JSONObject();
+
         postparams.put("e_id", epmloyee_id);
         postparams.put("date", s.toString());
 
+        SharedPreferences shared = getSharedPreferences("id", MODE_PRIVATE);
+        String uid= (shared.getString("uid", ""));
+
+        if(uid=="")
+        {
+
+        }
+        else
+        {
+            postparams.put("id", uid);
+            SharedPreferences sharedPreferences=getSharedPreferences("id",MODE_PRIVATE);
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            editor.putString("uid", "");
+            editor.apply();
+
+        }
         final JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.POST, Constant.User, postparams, new Response.Listener<JSONObject>() {
             @Override
             public void onResponse(JSONObject response) {
 
-                Log.e(TAG, "onResponse: " + response);
-                try {
-                    status = response.getString("status");
-                    message = response.getString("message");
+                if (result1 == "aaa") {
+                    Log.e(TAG, "onResponse: " + response);
+                    try {
 
-                    Toast.makeText(qrscanner.this, "" + status + "" + message, Toast.LENGTH_SHORT).show();
+                        status = (response.getString("status"));
+                        message = response.getString("message");
 
-                } catch (JSONException e) {
-                    e.printStackTrace();
+                        if(status.equals("1")) {
+
+                            data = response.getString("data");
+                            SharedPreferences sharedPreferences = getSharedPreferences("id", MODE_PRIVATE);
+                            SharedPreferences.Editor editor = sharedPreferences.edit();
+                            editor.putString("uid", data);
+                            editor.apply();
+                        }
+
+                        if (status.equals("1")) {
+                            AlertDialog.Builder builder1 = new AlertDialog.Builder(qrscanner.this);
+                            builder1.setTitle("Welcome : " + name);
+                            builder1.setMessage(" You are Successfully In  ");
+                            builder1.setCancelable(true);
+                            AlertDialog alert11 = builder1.create();
+                            alert11.show();
+                        }
+
+                        if(status.equals("2"))
+                        {
+                            AlertDialog.Builder builder2 = new AlertDialog.Builder(qrscanner.this);
+                            builder2.setTitle("thank you : " + name);
+                            builder2.setMessage("You are Successfully out ");
+                            builder2.setCancelable(true);
+                            AlertDialog alert12 = builder2.create();
+                            alert12.show();
+                        }
+
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                } else {
+                    Toast.makeText(qrscanner.this, "qr not found", Toast.LENGTH_SHORT).show();
                 }
             }
         }, new Response.ErrorListener() {
@@ -185,8 +285,3 @@ public class qrscanner extends AppCompatActivity implements View.OnClickListener
         super.onBackPressed();
     }
 }
-
-
-
-
-
